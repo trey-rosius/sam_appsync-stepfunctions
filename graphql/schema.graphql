@@ -1,0 +1,19 @@
+type StepFunctions {
+  id: String!
+  arn: String!
+}
+type Query {
+  getStepFunctions: [ StepFunctions! ]
+}
+input StepFunctionsInput {
+  id:ID!
+  arn: String!
+}
+type Mutation {
+  addStepFunction(input: StepFunctionsInput!): StepFunctions
+}
+
+schema {
+  query: Query
+  mutation: Mutation
+}
