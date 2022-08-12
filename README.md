@@ -1,5 +1,13 @@
 # sam_step_functions
 
+
+## Welcome to a simple step functions workflow, built with SAM,APPSYNC and PYTHON
+
+![alt text](https://raw.githubusercontent.com/trey-rosius/sam_stepfunctions/master/assets/apartment_studio.jpeg)
+![alt text](https://raw.githubusercontent.com/trey-rosius/sam_stepfunctions/master/assets/stepfunctions_graph.png)
+![alt text](https://raw.githubusercontent.com/trey-rosius/sam_stepfunctions/master/assets/success.png)
+
+
 This project contains source code and supporting files for a serverless application that you can deploy with the SAM CLI. It includes the following files and folders:
 
 - functions - Code for the application's Lambda functions to check the value of, buy, or sell shares of a stock.
