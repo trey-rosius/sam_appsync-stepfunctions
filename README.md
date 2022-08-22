@@ -100,8 +100,10 @@ Initially, here's how my folder structure looks like
 ![alt text](https://raw.githubusercontent.com/trey-rosius/sam_stepfunctions/master/assets/e.png)
 
 There's a couple of changes we are about to make 
-1) inside the `functions` directory, delete all folders, and then create a folder called lambda
-2) Delete everything inside the `statemachine` folder, then create a file inside that same folder called `booking_step_functions.asl.json.
+1) inside the `functions` directory, delete all folders, and then create a folder called lambda.
+2) 
+3) Delete everything inside the `statemachine` folder, then create a file inside that same folder called `booking_step_functions.asl.json.
+
 This file would contain the state machine definition for our workflow. 
 We visually defined this workflow in part 1 of this series.
 Copy the ASL(Amazon States Language) for the worklflow below and paste inside the file we've created above.
@@ -216,7 +218,49 @@ Copy the ASL(Amazon States Language) for the worklflow below and paste inside th
   }
 }
 ```
+Now, my folder structure looks like this
 
+![alt text](https://raw.githubusercontent.com/trey-rosius/sam_stepfunctions/master/assets/f.png)
+
+## Create GraphQL API
+Remember, we have to create a graphql api, attach a schema and a database and connect a lambda resolver to it . 
+This lambda would be responsible for invoking the step functions workflow.
+
+Open up the `template.yaml` and add this GraphQl Api and API key to the resources section 
+
+```yaml
+  SamStepFunctionsApi:
+    Type: "AWS::AppSync::GraphQLApi"
+    Properties:
+      Name: SamStepFunctionsApi
+      AuthenticationType: "API_KEY"
+      XrayEnabled: true
+      LogConfig:
+        CloudWatchLogsRoleArn: !GetAtt RoleAppSyncCloudWatch.Arn
+        ExcludeVerboseContent: FALSE
+        FieldLogLevel: ALL
+
+  SamStepFunctionsApiKey:
+    Type: AWS::AppSync::ApiKey
+    Properties:
+      ApiId: !GetAtt SamStepFunctionsApi.ApiId
+```
+We want to see a stream of logs in cloudwatch from appsync, so let's create and assign a cloudwatch role to the GraphQL api
+
+```yaml
+  AppSyncServiceRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Principal:
+              Service:
+                - "appsync.amazonaws.com"
+            Action:
+              - "sts:AssumeRole"
+```
 
 
 ![alt text](https://raw.githubusercontent.com/trey-rosius/sam_stepfunctions/master/assets/apartment_studio.jpeg)
