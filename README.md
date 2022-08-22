@@ -248,7 +248,126 @@ Open up the `template.yaml` and add this GraphQl Api and API key to the resource
 We want to see a stream of logs in cloudwatch from appsync, so let's create and assign a cloudwatch role to the GraphQL api
 
 ```yaml
-  AppSyncServiceRole:
+  RoleAppSyncCloudWatch:
+    Type: AWS::IAM::Role
+    Properties:
+      ManagedPolicyArns:
+        - "arn:aws:iam::aws:policy/service-role/AWSAppSyncPushToCloudWatchLogs"
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Action:
+              - sts:AssumeRole
+            Principal:
+              Service:
+                - appsync.amazonaws.com
+```
+## GraphQL Schema
+A graphql api always works with a graphql schema.
+In the root directory, great a folder called graphql and inside that folder, create a file called `schema.graphql`.
+Type in the following graphql schema into the file 
+
+```graphql
+type StepFunctions {
+  id: String!
+  arn: String!
+}
+type Query {
+  getStepFunctions: [ StepFunctions! ]
+}
+input StepFunctionsInput {
+  id:ID!
+  arn: String!
+}
+type Mutation {
+  addStepFunction(input: StepFunctionsInput!): StepFunctions
+}
+
+schema {
+  query: Query
+  mutation: Mutation
+}
+```
+
+This schema has a single mutation `addStepFunction` that sends an input(`id` and `arn`) to a lambda resolver.
+The lambda resolver uses this input to start a step functions execution. 
+Let's define the schema in `templates.yaml` under resources. 
+```yaml
+  SamStepFunctionsApiSchema:
+    Type: "AWS::AppSync::GraphQLSchema"
+    Properties:
+      ApiId: !GetAtt SamStepFunctionsApi.ApiId
+      DefinitionS3Location: 'graphql/schema.graphql'
+```
+## Create Lambda Function
+Let's create a lambda function that we'll attach to a datasource and then attach that datasource to an appsync resolver
+Inside the `functions/lambda` folder, create a file called `app.py` and type in the following code
+
+```python
+import json
+
+def lambda_handler(event, context):
+    print("Lambda function invoked")
+    print(json.dumps(event))
+    print(json.dumps(event["arguments"]['input']))
+
+    return {"id": event["arguments"]['input']['id'], "arn": event["arguments"]['input']['arn']}
+
+```
+
+For now, this lambda function simply takes an input(`id` and `arn`) and outputs(`id` and `arn`).
+Later on, we'll use this lambda function to start the step functions workflow.
+
+Let's define the lambda function in `template.yaml` alongside its `role`
+
+```yaml
+  SamStepFunctionFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: functions/lambda/
+      Handler: app.lambda_handler
+      Role: !GetAtt lambdaStepFunctionRole.Arn
+      Runtime: python3.8
+      Architectures:
+        - x86_64
+```
+
+```yaml
+  lambdaStepFunctionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Action:
+            - "sts:AssumeRole"
+            Effect: "Allow"
+            Principal:
+              Service:
+                - "lambda.amazonaws.com"
+```
+
+## Lambda Datasource
+For this application, we'll be using lambda as our datasource.
+
+Inside `template.yaml` add the following code below resources
+
+```yaml
+  SamStepFunctionDataSource:
+    Type: "AWS::AppSync::DataSource"
+    Properties:
+      ApiId: !GetAtt SamStepFunctionsApi.ApiId
+      Name: "SamStepFunctionsLambdaDirectResolver"
+      Type: "AWS_LAMBDA"
+      ServiceRoleArn: !GetAtt AppSyncServiceRole.Arn
+      LambdaConfig:
+        LambdaFunctionArn: !GetAtt SamStepFunctionFunction.Arn
+```
+Since this datasource would have to call appsync, we attach appsync service role to it
+
+```yaml
+AppSyncServiceRole:
     Type: "AWS::IAM::Role"
     Properties:
       AssumeRolePolicyDocument:
@@ -260,6 +379,21 @@ We want to see a stream of logs in cloudwatch from appsync, so let's create and 
                 - "appsync.amazonaws.com"
             Action:
               - "sts:AssumeRole"
+```
+
+### Create Direct Lambda Resolver
+Finally, we have to create a direct lambda resolver, which would connect the mutation in our schema, to the lambda
+datasource we created above.
+
+```yaml
+
+  CreateAddStepFunctionsResolver:
+    Type: "AWS::AppSync::Resolver"
+    Properties:
+      ApiId: !GetAtt SamStepFunctionsApi.ApiId
+      TypeName: "Mutation"
+      FieldName: "addStepFunction"
+      DataSourceName: !GetAtt SamStepFunctionDataSource.Name
 ```
 
 
