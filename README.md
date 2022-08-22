@@ -385,6 +385,8 @@ AppSyncServiceRole:
 Finally, we have to create a direct lambda resolver, which would connect the mutation in our schema, to the lambda
 datasource we created above.
 
+Under resources in `template.yaml`, type in 
+
 ```yaml
 
   CreateAddStepFunctionsResolver:
