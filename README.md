@@ -72,10 +72,16 @@ We’ll use Flutter and Amplify to build out the frontend application in the nex
 Open any Terminal/Command line interface, type in the command `sam init`, and follow the instructions as seen in the 
 screenshots.
 ![alt text](https://raw.githubusercontent.com/trey-rosius/sam_stepfunctions/master/assets/a.png)
+
+Choose python 3.8 as your runtime environment
+
 ![alt text](https://raw.githubusercontent.com/trey-rosius/sam_stepfunctions/master/assets/c.png)
+
+I gave the project name `samWorkshopApp`
+
 ![alt text](https://raw.githubusercontent.com/trey-rosius/sam_stepfunctions/master/assets/d.png)
 
-Once your application has been created, open it up in your IDE and let's proceed.
+Once your application has been created, open it up in your IDE and let's proceed. I use Pycharm
 
 Activate your virtualenv like this on mac or linux machines.
 
@@ -89,7 +95,127 @@ Once the virtualenv is activated, you can install the required dependencies.
 
 From the root directory of the project, install all dependencies in `requirements.txt` by running the command `pip install -r requirements.txt`
 
+Initially, here's how my folder structure looks like 
 
+![alt text](https://raw.githubusercontent.com/trey-rosius/sam_stepfunctions/master/assets/e.png)
+
+There's a couple of changes we are about to make 
+1) inside the `functions` directory, delete all folders, and then create a folder called lambda
+2) Delete everything inside the `statemachine` folder, then create a file inside that same folder called `booking_step_functions.asl.json.
+This file would contain the state machine definition for our workflow. 
+We visually defined this workflow in part 1 of this series.
+Copy the ASL(Amazon States Language) for the worklflow below and paste inside the file we've created above.
+```json
+{
+  "Comment": "A description of my state machine",
+  "StartAt": "Change Apartment Status",
+  "States": {
+    "Change Apartment Status": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::dynamodb:updateItem",
+      "Parameters": {
+        "TableName": "apartment_workshop_db",
+        "Key": {
+          "Id": {
+            "S.$": "$.input.apartmentId"
+          }
+        },
+        "UpdateExpression": "SET #apartmentStatus = :status",
+        "ExpressionAttributeNames": {
+          "#apartmentStatus": "status"
+        },
+        "ExpressionAttributeValues": {
+          ":status": {
+            "S.$": "$.input.status"
+          }
+        },
+        "ConditionExpression": "attribute_exists(Id)"
+      },
+      "Catch": [
+        {
+          "ErrorEquals": [
+            "States.TaskFailed"
+          ],
+          "Comment": "Apartment Doesn't Exist",
+          "Next": "Fail",
+          "ResultPath": "$.error"
+        }
+      ],
+      "Next": "Wait",
+      "ResultPath": "$.updateItem"
+    },
+    "Wait": {
+      "Type": "Wait",
+      "Seconds": 5,
+      "Next": "Get Apartment Status"
+    },
+    "Get Apartment Status": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::dynamodb:getItem",
+      "Parameters": {
+        "TableName": "apartment_workshop_db",
+        "Key": {
+          "Id": {
+            "S.$": "$.input.apartmentId"
+          }
+        }
+      },
+      "ResultPath": "$.getItem",
+      "Next": "Has Client Made Payment ?"
+    },
+    "Has Client Made Payment ?": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "And": [
+            {
+              "Variable": "$.getItem.Item.status.S",
+              "StringEquals": "paid"
+            },
+            {
+              "Variable": "$.getItem.Item.Id.S",
+              "StringEquals": "1234567"
+            }
+          ],
+          "Next": "Payment Was made."
+        }
+      ],
+      "Default": "Payment Wasn't Made, revert."
+    },
+    "Payment Was made.": {
+      "Type": "Pass",
+      "End": true
+    },
+    "Payment Wasn't Made, revert.": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::dynamodb:updateItem",
+      "Parameters": {
+        "TableName": "apartment_workshop_db",
+        "Key": {
+          "Id": {
+            "S": "1234567"
+          }
+        },
+        "UpdateExpression": "SET #apartmentStatus = :status",
+        "ExpressionAttributeNames": {
+          "#apartmentStatus": "status"
+        },
+        "ExpressionAttributeValues": {
+          ":status": {
+            "S": "vacant"
+          }
+        }
+      },
+      "End": true
+    },
+    "Fail": {
+      "Type": "Fail",
+      "Error": "Apartment Doesn't Exist",
+      "Cause": "Update Condition Failed"
+    }
+  }
+}
+```
 
 
 
