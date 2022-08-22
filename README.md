@@ -69,8 +69,25 @@ We’ll use Flutter and Amplify to build out the frontend application in the nex
 
 ### Create And Initialize a SAM Application
 
-Open any Terminal/Command line interface and type in the command `sam init`. 
+Open any Terminal/Command line interface, type in the command `sam init`, and follow the instructions as seen in the 
+screenshots.
+![alt text](https://raw.githubusercontent.com/trey-rosius/sam_stepfunctions/master/assets/a.png)
+![alt text](https://raw.githubusercontent.com/trey-rosius/sam_stepfunctions/master/assets/c.png)
+![alt text](https://raw.githubusercontent.com/trey-rosius/sam_stepfunctions/master/assets/d.png)
 
+Once your application has been created, open it up in your IDE and let's proceed.
+
+Activate your virtualenv like this on mac or linux machines.
+
+`source .venv/bin/activate`
+
+If you are a Windows platform, you would activate the virtualenv like this:
+
+`.venv\Scripts\activate.bat`
+
+Once the virtualenv is activated, you can install the required dependencies.
+
+From the root directory of the project, install all dependencies in `requirements.txt` by running the command `pip install -r requirements.txt`
 
 
 
