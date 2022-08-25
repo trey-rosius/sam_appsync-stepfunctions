@@ -382,7 +382,7 @@ AppSyncServiceRole:
 ```
 
 ### Create Direct Lambda Resolver
-Finally, we have to create a direct lambda resolver, which would connect the mutation in our schema, to the lambda
+Now, we have to create a direct lambda resolver, which would connect the mutation in our schema, to the lambda
 datasource we created above.
 
 Under resources in `template.yaml`, type in 
@@ -397,6 +397,163 @@ Under resources in `template.yaml`, type in
       FieldName: "addStepFunction"
       DataSourceName: !GetAtt SamStepFunctionDataSource.Name
 ```
+
+## Database
+In our workflow, we save apartment attributes to a database.Let's go ahead and create the database.
+It's a dynamoDB with a single primary key of ID. 
+
+```yaml
+  SamStepFunctionsTable:
+    Type: AWS::Serverless::SimpleTable # More info about SimpleTable Resource: https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/sam-resource-simpletable.html
+    Properties:
+      PrimaryKey:
+        Name: Id
+        Type: String
+      ProvisionedThroughput:
+        ReadCapacityUnits: 1
+        WriteCapacityUnits: 1
+```
+
+## State Machine
+A couple of steps above, we saved the step functions workflow in a file called `booking_step_functions.asl.json`.
+We have to create a state machine resource in `template.yml` link to that file and do some variable substitutions like the DB name and 
+also provide DynamoDB read and write policies, for the `update` and `get` item dynamodb methods.
+
+So let's go ahead and defined the step machine resource,under Resources in `template.yml`.
+
+```yaml
+  SamStepFunctionStateMachine:
+    Type: AWS::Serverless::StateMachine # More info about State Machine Resource: https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/sam-resource-statemachine.html
+    Properties:
+      DefinitionUri: statemachine/booking_step_function.asl.json
+      DefinitionSubstitutions:
+        DDBUpdateItem: !Sub arn:${AWS::Partition}:states:::dynamodb:updateItem
+        DDBGetItem: !Sub arn:${AWS::Partition}:states:::dynamodb:getItem
+        DDBTable: !Ref SamStepFunctionsTable
+
+      Policies: # Find out more about SAM policy templates: https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/serverless-policy-templates.html
+        - DynamoDBWritePolicy:
+            TableName: !Ref SamStepFunctionsTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref SamStepFunctionsTable
+
+```
+
+After all variable substitutions, the `booking_step_function.asl.json` file looks like this now 
+
+```json
+{
+  "Comment": "This state machine updates the status of a booked transaction in the DB, waits for payment to be made and then updates again or passes",
+  "StartAt": "Change Apartment Status",
+  "States": {
+    "Change Apartment Status": {
+      "Type": "Task",
+      "Resource": "${DDBUpdateItem}",
+      "Parameters": {
+        "TableName": "${DDBTable}",
+        "Key": {
+          "Id": {
+            "S.$": "$.details.accountId"
+          }
+        },
+        "ConditionExpression": "attribute_exists(Id)",
+        "UpdateExpression": "SET bookedStatus = :bookedStatus",
+        "ExpressionAttributeValues": {
+          ":bookedStatus": {
+            "S.$": "$.details.bookedStatus"
+          }
+        }
+      },
+      "Next": "Wait",
+      "ResultPath": "$.updateResult",
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "Comment": "Items Doesn't Exist",
+          "Next": "Fail",
+          "ResultPath": "$.updateError"
+        }
+      ]
+    },
+    "Wait": {
+      "Type": "Wait",
+      "Seconds": 60,
+      "Next": "Get Booking Status"
+    },
+    "Get Booking Status": {
+      "Type": "Task",
+      "Resource": "${DDBGetItem}",
+      "Parameters": {
+        "TableName": "${DDBTable}",
+
+        "Key": {
+          "id": {
+            "S.$": "$.details.accountId"
+          }
+        }
+      },
+      "Next": "Has the Apartment been Paid ?",
+      "ResultPath": "$.getItem",
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "Comment": "Couldn't find item",
+          "Next": "Fail"
+        }
+      ]
+    },
+    "Has the Apartment been Paid ?": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "And": [
+            {
+              "Variable": "$.getItem.Item.Id.S",
+              "StringEquals": "1234567"
+            },
+            {
+              "Variable": "$.getItem.Item.bookedStatus.S",
+              "StringEquals": "Paid"
+            }
+          ],
+          "Next": "Apartment Paid"
+        }
+      ],
+      "Default": "Not Paid(Revert Apartment Status)"
+    },
+    "Not Paid(Revert Apartment Status)": {
+      "Type": "Task",
+      "Resource": "${DDBUpdateItem}",
+      "Parameters": {
+        "TableName": "${DDBTable}",
+
+        "Key": {
+          "Id": {
+            "S.$": "$.getItem.Item.Id.S"
+          }
+        },
+        "UpdateExpression": "SET bookedStatus = :bookedStatus",
+        "ExpressionAttributeValues": {
+          ":bookedStatus": {
+            "S": "PENDING"
+          }
+        }
+      },
+      "End": true,
+      "ResultPath": "$.notPaid"
+    },
+    "Fail": {
+      "Type": "Fail"
+    },
+    "Apartment Paid": {
+      "End": true,
+      "Type": "Pass"
+    }
+  }
+}
+
+```
+
 
 
 ![alt text](https://raw.githubusercontent.com/trey-rosius/sam_stepfunctions/master/assets/apartment_studio.jpeg)
