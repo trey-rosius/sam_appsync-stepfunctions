@@ -101,8 +101,7 @@ Initially, here's how my folder structure looks like
 
 There's a couple of changes we are about to make 
 1) inside the `functions` directory, delete all folders, and then create a folder called lambda.
-2) 
-3) Delete everything inside the `statemachine` folder, then create a file inside that same folder called `booking_step_functions.asl.json.
+2) Delete everything inside the `statemachine` folder, then create a file inside that same folder called `booking_step_functions.asl.json.
 
 This file would contain the state machine definition for our workflow. 
 We visually defined this workflow in part 1 of this series.
@@ -553,6 +552,48 @@ After all variable substitutions, the `booking_step_function.asl.json` file look
 }
 
 ```
+
+Please Grab the complete code here [https://github.com/trey-rosius/sam_stepfunctions](https://github.com/trey-rosius/sam_stepfunctions)
+
+## Invoke Step Functions From Lambda
+Navigate to `functions/lambda/app.py` and type in this code 
+```python
+
+import json
+import boto3
+
+step_function_client = boto3.client("stepfunctions")
+
+
+def lambda_handler(event, context):
+    print("Lambda function invoked")
+    print(json.dumps(event))
+    print(json.dumps(event["arguments"]['input']))
+    step_function_client.start_execution(
+        stateMachineArn=event["arguments"]['input']['arn'],
+        name=event["arguments"]['input']['id'],
+        input= "{\"details\":{\"accountId\":\"1234567\",\"bookedStatus\":\"Booked\"}}",
+
+    )
+
+    return {"id": event["arguments"]['input']['id'], "arn": event["arguments"]['input']['arn']}
+
+```
+We import the stepfunctions class from boto3 client and use it to start a step functions execution by passing in the StateMachineArn we get from deploying the project, a unique name for the state machine execution and the state machine input
+
+## Deploy
+Deploy the app to your aws account using 
+`sam build` 
+`sam deploy`
+
+Once deployment is successful, grab the step functions arn and proceed to testing in appsync
+
+## Testing
+Sign in to your AWS console and search for appsync. Open up appsync and click on your newly deployed appsync project.
+![alt text](https://raw.githubusercontent.com/trey-rosius/sam_stepfunctions/master/assets/g.jpeg)
+![alt text](https://raw.githubusercontent.com/trey-rosius/sam_stepfunctions/master/assets/j.jpeg)
+![alt text](https://raw.githubusercontent.com/trey-rosius/sam_stepfunctions/master/assets/i.jpeg)
+
 
 
 
