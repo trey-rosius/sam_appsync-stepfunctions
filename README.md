@@ -590,9 +590,9 @@ Once deployment is successful, grab the step functions arn and proceed to testin
 
 ## Testing
 Sign in to your AWS console and search for appsync. Open up appsync and click on your newly deployed appsync project.
-![alt text](https://raw.githubusercontent.com/trey-rosius/sam_stepfunctions/master/assets/g.jpeg)
-![alt text](https://raw.githubusercontent.com/trey-rosius/sam_stepfunctions/master/assets/j.jpeg)
-![alt text](https://raw.githubusercontent.com/trey-rosius/sam_stepfunctions/master/assets/i.jpeg)
+![alt text](https://raw.githubusercontent.com/trey-rosius/sam_stepfunctions/master/assets/g.png)
+![alt text](https://raw.githubusercontent.com/trey-rosius/sam_stepfunctions/master/assets/j.png)
+![alt text](https://raw.githubusercontent.com/trey-rosius/sam_stepfunctions/master/assets/i.png)
 
 
 
