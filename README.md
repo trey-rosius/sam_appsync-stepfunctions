@@ -594,8 +594,19 @@ Sign in to your AWS console and search for appsync. Open up appsync and click on
 ![alt text](https://raw.githubusercontent.com/trey-rosius/sam_stepfunctions/master/assets/j.png)
 ![alt text](https://raw.githubusercontent.com/trey-rosius/sam_stepfunctions/master/assets/i.png)
 
+## Conclusion 
 
+In this post, we built a step functions workflow using Appsync, SAM and Python. This workflow mimics a real life scenario of booking/reserving  an apartment.
 
+- We saw how to invoke Step functions from A lambda
+- How define a state machine in a yaml file with variable substitution.
+- How to use IaC to create Applications with Step functions
+
+In the next post, we'll invoke the step functions workflow from a mobile frontend application built with
+amplify and flutter.
+Stay tuned
+
+## More Screenshots
 
 ![alt text](https://raw.githubusercontent.com/trey-rosius/sam_stepfunctions/master/assets/apartment_studio.jpeg)
 ![alt text](https://raw.githubusercontent.com/trey-rosius/sam_stepfunctions/master/assets/stepfunctions_graph.png)
