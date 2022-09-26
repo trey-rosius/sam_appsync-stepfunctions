@@ -5,6 +5,7 @@ Description: >
 
   Sample SAM Template for sam_cdk_workflow
 
+
 Resources:
   AppSyncServiceRole:
     Type: "AWS::IAM::Role"
@@ -184,6 +185,9 @@ Resources:
       Handler: app.lambda_handler
       Role: !GetAtt lambdaStepFunctionRole.Arn
       Runtime: python3.8
+      Environment:
+        Variables:
+          STATE_MACHINE_ARN: !Ref SamStepFunctionStateMachine
       Architectures:
         - x86_64
 
@@ -192,7 +196,7 @@ Resources:
     Properties:
       ApiId: !GetAtt SamStepFunctionsApi.ApiId
       TypeName: "Mutation"
-      FieldName: "addStepFunction"
+      FieldName: "addStepFunctionExecution"
       DataSourceName: !GetAtt SamStepFunctionDataSource.Name
   SamStepFunctionsTable:
     Type: AWS::Serverless::SimpleTable # More info about SimpleTable Resource: https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/sam-resource-simpletable.html
@@ -208,6 +212,4 @@ Outputs:
   SamStepFunctionStateMachineArn:
     Description: "Sam Step Functions State machine ARN"
     Value: !Ref SamStepFunctionStateMachine
-  SamStepFunctionsApiArn:
-    Description: "graphql api function url"
-    Value: !GetAtt SamStepFunctionsApi.Arn
+
