@@ -10,7 +10,7 @@ In the second part of this series, we built the same workflow using CDK as IaC, 
 
 In this post, we’ll look at how to build the same workflow, using SAM as IaC, Appsync and python.
 
-# Prerequisite
+## Requirements
 
 - Install AWS Cli ([https://docs.aws.amazon.com/cli/latest/userguide/cli-chap-welcome.html](https://docs.aws.amazon.com/cli/latest/userguide/cli-chap-welcome.html))
 - Install AWS SAM CLI([https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/serverless-sam-cli-install.html](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/serverless-sam-cli-install.html))
@@ -270,26 +270,26 @@ Type in the following graphql schema into the file
 ```graphql
 type StepFunctions {
   id: String!
-  arn: String!
 }
 type Query {
-  getStepFunctions: [ StepFunctions! ]
+  getStepFunctionsExecutions: [ StepFunctions! ]
 }
 input StepFunctionsInput {
   id:ID!
-  arn: String!
 }
 type Mutation {
-  addStepFunction(input: StepFunctionsInput!): StepFunctions
+
+  addStepFunctionExecution(input: StepFunctionsInput!): Boolean!
 }
 
 schema {
   query: Query
   mutation: Mutation
 }
+
 ```
 
-This schema has a single mutation `addStepFunction` that sends an input(`id` and `arn`) to a lambda resolver.
+This schema has a single mutation `addStepFunctionExecution` that sends an input(`id` ) to a lambda resolver.
 The lambda resolver uses this input to start a step functions execution. 
 Let's define the schema in `templates.yaml` under resources. 
 ```yaml
@@ -304,18 +304,22 @@ Let's create a lambda function that we'll attach to a datasource and then attach
 Inside the `functions/lambda` folder, create a file called `app.py` and type in the following code
 
 ```python
-import json
-
 def lambda_handler(event, context):
     print("Lambda function invoked")
     print(json.dumps(event))
     print(json.dumps(event["arguments"]['input']))
 
-    return {"id": event["arguments"]['input']['id'], "arn": event["arguments"]['input']['arn']}
+    step_function_client.start_execution(
+        stateMachineArn=STATE_MACHINE_ARN,
+        name=event["arguments"]['input']['id'],
+        input="{\"details\":{\"accountId\":\"1234567\",\"bookedStatus\":\"Booked\"}}",
 
+    )
+
+    return True
 ```
 
-For now, this lambda function simply takes an input(`id` and `arn`) and outputs(`id` and `arn`).
+For now, this lambda function simply takes an input(`id`) and outputs a boolean (True).
 Later on, we'll use this lambda function to start the step functions workflow.
 
 Let's define the lambda function in `template.yaml` alongside its `role`
@@ -328,6 +332,9 @@ Let's define the lambda function in `template.yaml` alongside its `role`
       Handler: app.lambda_handler
       Role: !GetAtt lambdaStepFunctionRole.Arn
       Runtime: python3.8
+      Environment:
+        Variables:
+          STATE_MACHINE_ARN: !Ref SamStepFunctionStateMachine      
       Architectures:
         - x86_64
 ```
@@ -393,7 +400,7 @@ Under resources in `template.yaml`, type in
     Properties:
       ApiId: !GetAtt SamStepFunctionsApi.ApiId
       TypeName: "Mutation"
-      FieldName: "addStepFunction"
+      FieldName: "addStepFunctionExecution"
       DataSourceName: !GetAtt SamStepFunctionDataSource.Name
 ```
 
@@ -558,25 +565,25 @@ Please Grab the complete code here [https://github.com/trey-rosius/sam_stepfunct
 ## Invoke Step Functions From Lambda
 Navigate to `functions/lambda/app.py` and type in this code 
 ```python
-
-import json
 import boto3
-
+STATE_MACHINE_ARN = os.environ.get("STATE_MACHINE_ARN")
 step_function_client = boto3.client("stepfunctions")
+sqs = boto3.client('sqs')
 
 
 def lambda_handler(event, context):
     print("Lambda function invoked")
     print(json.dumps(event))
     print(json.dumps(event["arguments"]['input']))
+
     step_function_client.start_execution(
-        stateMachineArn=event["arguments"]['input']['arn'],
+        stateMachineArn=STATE_MACHINE_ARN,
         name=event["arguments"]['input']['id'],
-        input= "{\"details\":{\"accountId\":\"1234567\",\"bookedStatus\":\"Booked\"}}",
+        input="{\"details\":{\"accountId\":\"1234567\",\"bookedStatus\":\"Booked\"}}",
 
     )
 
-    return {"id": event["arguments"]['input']['id'], "arn": event["arguments"]['input']['arn']}
+    return True
 
 ```
 We import the stepfunctions class from boto3 client and use it to start a step functions execution by passing in the StateMachineArn we get from deploying the project, a unique name for the state machine execution and the state machine input
@@ -586,7 +593,7 @@ Deploy the app to your aws account using
 `sam build` 
 `sam deploy`
 
-Once deployment is successful, grab the step functions arn and proceed to testing in appsync
+Once deployment is successful,  proceed to testing in appsync
 
 ## Testing
 Sign in to your AWS console and search for appsync. Open up appsync and click on your newly deployed appsync project.
